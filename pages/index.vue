@@ -21,13 +21,16 @@
         option(value="lastWeek") Last Week
         option(value="custom") Custom
         option(value="allcontacts") All Contacts
-        div(v-if="selectedDateRange === 'custom'")
-          //VueDatePicker(v-model="filters.startDate" :max-date="new Date()" enable-time-picker="false")
-          //VueDatePicker(v-model="filters.endDate" :max-date="new Date()")
+      div(v-if="selectedDateRange === 'custom'")
+        VueDatePicker(v-model="filters.startDate" :max-date="new Date()" :enableTimePicker="false")
+        VueDatePicker(v-model="filters.endDate" :max-date="new Date()"  :enableTimePicker="false")
   .rounded-lg.p-8.bg-zinc-400.w-full.shadow-inner.flex.flex-col.gap-5
     .flex.gap-5.items-center
       input.grow.p-4.border-0.rounded-md.shadow-lg(class="w-7/8" type='text' placeholder='Search...' v-model='searchQuery')
       button.bg-theme-primary.text-white.rounded-md.text-md.p-4(@click='fetchContacts') Search
+      .flex.flex-col.gap-2
+        label(for='showRemoved') Show Removed
+        input(name="showRemoved" type="checkbox" v-model="filters.showRemoved") 
     table.w-full.flex.flex-col.gap-2(v-if="searchResults.length")
       thead
         tr.grid.grid-cols-5.bg-white.rounded-lg.py-2
@@ -35,16 +38,16 @@
           th Email
           th Phone
           th Company
-          th Actions
+          th(v-if="isEditor || isAdmin") Actions
       tbody.flex.flex-col.gap-2
         tr.grid.grid-cols-5.bg-white.rounded-lg.py-4(v-for='contact in searchResults' :key='contact.id')
           p.text-center.align-center  {{ (contact.firstName && contact.lastName) ? (contact.firstName + ' ' + contact.lastName) : (contact.firstName || contact.lastName || '') }}
           p.text-center.align-center  {{ contact.emailAddress ? contact.emailAddress : '' }}
           p.text-center.align-center {{ contact.mainPhone ? contact.mainPhone : (contact.directPhone ? contact.directPhone : (contact.mobilePhone ? contact.mobilePhone : 'N/A')) }}
           p.text-center.align-center {{ contact.company ? contact.company : '' }}
-          .flex.gap-5.justify-center
-            img.cursor-pointer.w-6.h-6(src='~/assets/edit-icon.png' alt='Edit Contact' @click="editContact(contact)")
-            img.cursor-pointer.w-6.h-6(src='~/assets/remove.png' alt='Remove' @click="confirmAction(contact, 'delete')")
+          .flex.gap-5.justify-center(v-if="isEditor || isAdmin")
+            img.cursor-pointer.w-6.h-6(v-if="!filters.showRemoved" src='~/assets/edit-icon.png' alt='Edit Contact' @click="editContact(contact)")
+            img.cursor-pointer.w-6.h-6(src='~/assets/remove.png' alt='Remove' @click="toggleArchived(contact)")
     .flex.flex-col.gap-2.items-center.mt-10.select-none
       .flex.gap-3.justify-center.mt-10
         button.cursor-pointer.bg-zinc-100.p-2.rounded-md(class="disabled:bg-gray-300" @click="prevPage()" :disabled="currentPage === 0") Prev
@@ -56,7 +59,7 @@
 <script lang='ts' setup>
 import type { User } from '@/types.d';
 import Multiselect from 'vue-multiselect';
-//import VueDatePicker from '@vuepic/vue-datepicker';
+import VueDatePicker from '@vuepic/vue-datepicker';
 
 const selectedDateRange = ref('allcontacts');
 const searchQuery = ref('');
@@ -64,7 +67,8 @@ const searchQuery = ref('');
 const filters = ref({
   startDate: new Date(0),
   endDate: new Date(),
-  tag: []
+  tag: [],
+  showRemoved: false
 });
 
 const router = useRouter();
@@ -85,16 +89,18 @@ const totalPages = computed(() => {
   return searchResults.value ? Math.ceil(count.value / pageSize.value) : 0;
 });
 
-const confirmAction = async (contact: any, action: string) => {
+const toggleArchived = async (contact: any) => {
   let confirmMessage;
-
-  confirmMessage = `Are you sure you want to remove ${contact.firstName} ${contact.lastName}?`;
+  if (!filters.value.showRemoved)
+    confirmMessage = `Are you sure you want to archive ${contact.firstName} ${contact.lastName}?`;
+  else
+    confirmMessage = `Are you sure you want to unarchive ${contact.firstName} ${contact.lastName}?`;
 
   const confirmActionDialog = confirm(confirmMessage);
 
   if (confirmActionDialog) {
 
-    const response = await $fetch(`/api/contactStatusChanger?contactId=${contact.id}&action=${action}`, {
+    const response = await $fetch(`/api/toggleArchived?contactId=${contact.id}&action=${filters.value.showRemoved ? 'unarchive' : 'archive'}`, {
       method: 'PUT',
     });
     window.location.reload();
@@ -167,7 +173,8 @@ const constructQueryParams = () => {
     searchQuery: searchQuery.value,
     tag: tagsQueryParam,
     cursor: cursors.value[currentPage.value] + '',
-    pageSize: pageSize.value + ''
+    pageSize: pageSize.value + '',
+    showRemoved: filters.value.showRemoved,
   });
   console.log("startdate with isostring", filters.value.startDate);
   console.log("enddate with iostring", filters.value.endDate);

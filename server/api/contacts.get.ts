@@ -2,12 +2,12 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export default defineEventHandler(async (event) => {
-  const { pageSize, searchQuery, tag, startDate, endDate, cursor, showRemoved = false } = getQuery(event);
+  const { pageSize, searchQuery, tag, startDate, endDate, cursor, showRemoved } = getQuery(event);
   const id =  parseInt(cursor as string || "0")
   
   const query: any = {
     where: {
-      removed: showRemoved,
+      removed: showRemoved == "true",
       AND: [],
     },
   };
