@@ -9,7 +9,6 @@ jobs:
   build:
     permissions:
       id-token: write # This is required for requesting the JWT
-      contents: read    # This is required for actions/checkout
     runs-on: ubuntu-latest
 
     steps:
@@ -36,16 +35,17 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@62f4f872db3836360b72999f4b87f1ff13310f3a
+        uses: aws-actions/amazon-ecr-login@v2
 
       - name: Build and Push Docker image
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry}}
+          REPOSITORY: ud-repo
           IMAGE_TAG: ${{ github.sha}}
         run: |
           # Build a docker container and
           # push it to ECR so that it can
           # be deployed to ECS.
-          docker build -t $ECR_REGISTRY/ud-repo:$IMAGE_TAG .
-          docker push $ECR_REGISTRY/ud-repo:$IMAGE_TAG
-          echo "image=$ECR_REGISTRY/ud-repo:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          docker build -t $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
